@@ -1,5 +1,7 @@
 importScripts("kissat-emscripten.js", "kissat.js");
 
+postMessage(true);  // signal ready
+
 onmessage = (ev) => {
   const {vars, clauses} = ev.data;
 
@@ -24,7 +26,9 @@ onmessage = (ev) => {
 
   
     const sat = self.solver.solve();
+    self.solver.printStatistics();
     const model = vars ? self.solver.model(vars) : null;
+
     self.solver.release();
     postMessage({ sat, model });
     console.log("Worker sent message", { sat, model });

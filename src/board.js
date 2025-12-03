@@ -427,6 +427,10 @@ function activateLiveSolve() {
 }
 
 function reset() {
+    for (let solver of legionSolvers) {
+        solver.stop();
+    }
+
     resetBoard();
     document.getElementById("clearBoard").disabled = false;
     document.getElementById("boardButton").innerText = i18n("start");
@@ -483,6 +487,11 @@ async function runSolver() {
         console.log(`Board filled: ${boardFilled}, Piece count: ${currentPiecesValue.innerHTML}`);
         alert(`Mismatch between board filled ${boardFilled} and piece count ${currentPiecesValue.innerHTML}!\n选择格子数量 ${boardFilled} 与 联盟方块数量 ${currentPiecesValue.innerHTML}不匹配`);
         return false;
+    }
+    const currentPieces = document.getElementById("currentCaracterCountValue").innerHTML;
+    console.log(`Current pieces: ${currentPieces}`);
+    if (currentPieces > 45) {
+        alert('Lots of pieces selected, solver may take a long time to complete!\n选择了大量方块，求解器可能需要较长时间才能完成！');
     }
     let downBoard = [];
     for (let i = 0; i < board.length; i++) {

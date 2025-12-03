@@ -1,6 +1,5 @@
 import { Point } from './point.js';
 import { Piece } from './piece.js';
-const worker = new Worker("./kissat_worker.js");
 
 class LegionSolver {
     pausePromise;
@@ -70,12 +69,15 @@ class LegionSolver {
         console.log(this.var_lists);
         console.log(this.pieces);
 
+        const worker = new Worker("./kissat_worker.js");
+        this.worker = worker;
         let resolveWait;
         const waitForSolver = new Promise((resolve) => {
             resolveWait = resolve;
         });
         var solved = false;
         var solutions = null;
+        var workerReady = false;
 
         this.generateVariablesByPieceRowColOri(this.pieces);
         this.consraintForGridOccupation(this.board);
@@ -85,14 +87,21 @@ class LegionSolver {
         console.log(`Total clauses: ${this.clauses.length}`);
         // var kissat_solver = new Kissat();
         worker.onmessage = (ev) => {
-            const { sat, model } = ev.data;
-            console.log("Message received from worker");
-            console.log(`SAT: ${sat}`);
-            console.log(`Model: ${model}`);
-            // console.log(this.var_map);
-            solved = sat;
-            solutions = model;
-            resolveWait();
+            if (ev.data === true) {
+                workerReady = true;
+            } else {
+                const { sat, model } = ev.data;
+                console.log("Message received from worker");
+                console.log(`SAT: ${sat}`);
+                console.log(`Model: ${model}`);
+                // console.log(this.var_map);
+                solved = sat;
+                solutions = model;
+                resolveWait();
+            }
+        }
+        while (!workerReady) {
+            await new Promise(resolve => setTimeout(resolve, 10));
         }
         worker.postMessage({ vars: this.lits, clauses: this.clauses });
         this.lits = null;
@@ -781,6 +790,8 @@ class LegionSolver {
 
     stop() {
         this.shouldStop = true;
+        this.worker.terminate();
+        console.log("Worker terminated");
     }
 }
 
