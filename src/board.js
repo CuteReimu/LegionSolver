@@ -505,12 +505,12 @@ async function runSolver() {
     if (boardFilled == 0 && currentPieces > 0) {
         return false;
     }
-    if (boardFilled != currentPiecesValue.innerHTML) {
-        console.log("Board filled does not match piece count");
-        console.log(`Board filled: ${boardFilled}, Piece count: ${currentPiecesValue.innerHTML}`);
-        alert(`Mismatch between board filled ${boardFilled} and piece count ${currentPiecesValue.innerHTML}!\n选择格子数量 ${boardFilled} 与 联盟方块数量 ${currentPiecesValue.innerHTML}不匹配`);
-        return false;
-    }
+    // if (boardFilled != currentPiecesValue.innerHTML) {
+    //     console.log("Board filled does not match piece count");
+    //     console.log(`Board filled: ${boardFilled}, Piece count: ${currentPiecesValue.innerHTML}`);
+    //     alert(`Mismatch between board filled ${boardFilled} and piece count ${currentPiecesValue.innerHTML}!\n选择格子数量 ${boardFilled} 与 联盟方块数量 ${currentPiecesValue.innerHTML}不匹配`);
+    //     return false;
+    // }
     const currentPieces = document.getElementById("currentCaracterCountValue").innerHTML;
     console.log(`Current pieces: ${currentPieces}`);
     if (currentPieces > 45) {
