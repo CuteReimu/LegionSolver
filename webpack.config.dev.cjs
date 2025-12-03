@@ -1,5 +1,6 @@
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
+const CopyWebpackPlugin = require("copy-webpack-plugin");
 
 const languages = ['GMS', 'KMS', 'JMS', 'TMS', 'CMS'];
 
@@ -10,7 +11,7 @@ module.exports = {
         open: true,
         watchContentBase: true
     },
-    entry: './src/main.js',
+    entry: ['./src/settings.js', './src/main.js'],
     output: {
         filename: 'bundle.js'
     },
@@ -31,6 +32,15 @@ module.exports = {
                     'style-loader',
                     'css-loader'
                 ]
+            },
+            {
+                test: /\.wasm$/,
+                type: "asset/resource"
+            },
+
+            {
+                test: /\.worker\.js$/,
+                use: { loader: "worker-loader" }  // if using worker-loader
             }
         ]
     },
@@ -40,5 +50,10 @@ module.exports = {
             inject: false,
             languages
         }),
+            new CopyWebpackPlugin({
+      patterns: [
+        { from: "public", to: "." }
+      ]
+    })
     ]
 };
