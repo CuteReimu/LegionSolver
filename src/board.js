@@ -502,6 +502,8 @@ function showPopup(msg, duration=10000) {
 }
 
 async function runSolver() {
+    notifications = notifications.filter(n => {n?.remove(); return false;});
+
     if (boardFilled == 0 && currentPieces > 0) {
         return false;
     }
