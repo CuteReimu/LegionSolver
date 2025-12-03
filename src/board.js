@@ -29,6 +29,8 @@ for (let i = 0; i < 16; i++) {
     legionGroups[i] = [];
 }
 
+var notifications = [];
+
 document.querySelector('#legionBoard tbody').innerHTML =
     board.map(row => `<tr>${row.map(_ => `<td class="legionCell"></td>`).join('')}</tr>`).join('');
 
@@ -430,6 +432,7 @@ function reset() {
     for (let solver of legionSolvers) {
         solver.stop();
     }
+    showPopup("Solver stopped.\n求解器已停止。", 5000);
 
     resetBoard();
     document.getElementById("clearBoard").disabled = false;
@@ -477,6 +480,26 @@ async function handleButton(evt) {
             break;
     }
 }
+function showPopup(msg, duration=10000) {
+  notifications = notifications.filter(n => {n?.remove(); return false;});
+  const div = document.createElement("div");
+  notifications.push(div);
+  div.textContent = msg;
+  div.style.position = "fixed";
+  div.style.top = "20px";
+  div.style.right = "20px";
+  div.style.background = "black";
+  div.style.color = "white";
+  div.style.padding = "10px 20px";
+  div.style.borderRadius = "6px";
+  div.style.zIndex = 9999;
+  document.body.appendChild(div);
+
+  setTimeout(() => {
+        notifications = notifications.filter(n => n !== div);
+        div?.remove()
+    }, duration);
+}
 
 async function runSolver() {
     if (boardFilled == 0 && currentPieces > 0) {
@@ -491,7 +514,9 @@ async function runSolver() {
     const currentPieces = document.getElementById("currentCaracterCountValue").innerHTML;
     console.log(`Current pieces: ${currentPieces}`);
     if (currentPieces > 45) {
-        alert('Lots of pieces selected, solver may take a long time to complete!\n选择了大量方块，求解器可能需要较长时间才能完成！');
+        showPopup('Lots of pieces selected, solver may take a long time to complete!\n选择了大量方块，求解器可能需要较长时间才能完成！');
+    } else if (boardFilled > 200) {
+        showPopup('Large board area selected, solver may take time to complete!\n选择了较大面积的格子，求解器可能需要时间才能完成！');
     }
     let downBoard = [];
     for (let i = 0; i < board.length; i++) {
