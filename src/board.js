@@ -478,6 +478,12 @@ async function runSolver() {
     if (boardFilled == 0 && currentPieces > 0) {
         return false;
     }
+    if (boardFilled != currentPiecesValue.innerHTML) {
+        console.log("Board filled does not match piece count");
+        console.log(`Board filled: ${boardFilled}, Piece count: ${currentPiecesValue.innerHTML}`);
+        alert(`Mismatch between board filled ${boardFilled} and piece count ${currentPiecesValue.innerHTML}!\n选择格子数量 ${boardFilled} 与 联盟方块数量 ${currentPiecesValue.innerHTML}不匹配`);
+        return false;
+    }
     let downBoard = [];
     for (let i = 0; i < board.length; i++) {
         downBoard[i] = [];
@@ -502,11 +508,12 @@ async function runSolver() {
 
     pieceHistory = [];
     legionSolvers.push(new LegionSolver(board, _.cloneDeep(pieces), onBoardUpdated));
-    legionSolvers.push(new LegionSolver(rightBoard, _.cloneDeep(pieces), () => false));
-    legionSolvers.push(new LegionSolver(downBoard, _.cloneDeep(pieces), () => false));
-    legionSolvers.push(new LegionSolver(leftBoard, _.cloneDeep(pieces), () => false));
+    // legionSolvers.push(new LegionSolver(rightBoard, _.cloneDeep(pieces), () => false));
+    // legionSolvers.push(new LegionSolver(downBoard, _.cloneDeep(pieces), () => false));
+    // legionSolvers.push(new LegionSolver(leftBoard, _.cloneDeep(pieces), () => false));
 
-    let runRotated = legionSolvers[0].longSpaces.length != 0;
+    // let runRotated = legionSolvers[0].longSpaces.length != 0;
+    let runRotated = false;
     const boardPromise = legionSolvers[0].solve();
     let success;
     if (runRotated) {
@@ -532,53 +539,6 @@ async function runSolver() {
         }
         finishedSolver = legionSolvers[0];
         pieceHistory = legionSolvers[0].history;
-    } else if (legionSolvers[1].success !== undefined) {
-        for (let i = 0; i < legionSolvers[1].board[0].length; i++) {
-            for (let j = 0; j < legionSolvers[1].board.length; j++) {
-                board[i][j] = legionSolvers[1].board[j][legionSolvers[1].board[0].length - 1 - i];
-            }
-        }
-
-        for (let piece of legionSolvers[1].history) {
-            for (let point of piece) {
-                let holder = point.y
-                point.y = legionSolvers[1].board[0].length - 1 - point.x
-                point.x = holder;
-            }
-        }
-        finishedSolver = legionSolvers[1];
-        pieceHistory = legionSolvers[1].history
-    } else if (legionSolvers[2].success !== undefined) {
-        for (let i = 0; i < legionSolvers[2].board.length; i++) {
-            for (let j = 0; j < legionSolvers[2].board[0].length; j++) {
-                board[i][j] = legionSolvers[2].board[legionSolvers[2].board.length - 1 - i][legionSolvers[2].board[0].length - 1 - j];
-            }
-        }
-
-        for (let piece of legionSolvers[2].history) {
-            for (let point of piece) {
-                point.y = legionSolvers[2].board.length - 1 - point.y
-                point.x = legionSolvers[2].board[0].length - 1 - point.x
-            }
-        }
-        finishedSolver = legionSolvers[2];
-        pieceHistory = legionSolvers[2].history
-    } else if (legionSolvers[3].success !== undefined) {
-        for (let i = 0; i < legionSolvers[3].board[0].length; i++) {
-            for (let j = 0; j < legionSolvers[3].board.length; j++) {
-                board[i][j] = legionSolvers[3].board[legionSolvers[3].board.length - j - 1][i];
-            }
-        }
-
-        for (let piece of legionSolvers[3].history) {
-            for (let point of piece) {
-                let holder = point.x
-                point.x = legionSolvers[3].board.length - 1 - point.y
-                point.y = holder
-            }
-        }
-        finishedSolver = legionSolvers[3];
-        pieceHistory = legionSolvers[3].history
     }
 
     document.getElementById("iterations").style.visibility = 'visible';
