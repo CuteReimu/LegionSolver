@@ -1,5 +1,6 @@
 import { Point } from './point.js';
 import { Piece } from './piece.js';
+import { CNF_Constructor } from './cnf_constructor.js';
 
 class LegionSolver {
     pausePromise;
@@ -103,6 +104,7 @@ class LegionSolver {
         while (!workerReady) {
             await new Promise(resolve => setTimeout(resolve, 10));
         }
+        console.time("Solving time");
         worker.postMessage({ vars: this.lits, clauses: this.clauses });
         this.lits = null;
         this.clauses = null;
@@ -113,6 +115,7 @@ class LegionSolver {
         console.log("Garbage collection triggered");
 
         await waitForSolver;
+        console.timeEnd("Solving time");
         console.log("Solving finished");
         if (!solved) {
             console.log("No solution found");
@@ -307,19 +310,23 @@ class LegionSolver {
     }
 
     exactlyOne(vars){
+        console.log(`Adding exactly one constraint for ${vars.length} variables`);
         var clauses = [];
         // At least one is true
         clauses.push(vars.slice());
         
-        var prev_aux = null;
-        // At most one is true
-        // Too large
-        // for (let i = 0; i < vars.length; i++) {
-        //     for (let j = i + 1; j < vars.length; j++) {
-        //         clauses.push([-vars[i], -vars[j]]);
-        //     }
-        // }
+        // At most one is true               
+        const at_most_one_clauses = this.atMostOne(vars);
+        for (let i = 0; i < at_most_one_clauses.length; i++) {
+            clauses.push(at_most_one_clauses[i]);
+        }
 
+        return clauses;
+    }
+
+    atMostOne(vars){
+        var clauses = [];
+        var prev_aux = null;
         // Ladder encoding
         for (let i = 0; i < vars.length - 1; i++) {
             const xi = vars[i];
@@ -337,28 +344,22 @@ class LegionSolver {
 
             prev_aux = aux;
         }
-
         return clauses;
     }
 
-    // exactlyK(vars, k){
-    //     var clauses = [];
-    //     // At most K
-    //     const at_most_k_clauses = this.atMostK(vars, k);
-    //     for (let i = 0; i < at_most_k_clauses.length; i++) {
-    //         clauses.push(at_most_k_clauses[i]);
-    //     }
-
-    //     // At least K, aka At most N-K
-    //     const neg_vars = vars.map(v => -v);
-    //     const at_most_n_minus_k_clauses = this.atMostK(neg_vars, vars.length - k);
-    //     for (let i = 0; i < at_most_n_minus_k_clauses.length; i++) {
-    //         clauses.push(at_most_n_minus_k_clauses[i]);
-    //     }
-    //     return clauses;
-    // }
 
     atMostK(vars, k){
+        console.log(`Adding at most ${k} constraint for ${vars.length} variables`);
+        if (k == 1){
+            return this.atMostOne(vars);
+        }
+        if (k > 5){
+            const cnf = new CNF_Constructor(this);
+            // cnf.at_most_k_adder(vars, k);
+            cnf.at_most_k_commander_totalizer(vars, k, 32);
+            return cnf.clauses_to_add;
+        }
+
         // Ladder encoding
         const n = vars.length;
         var clauses = [];
@@ -375,47 +376,47 @@ class LegionSolver {
             return clauses;
         }
 
-    // allocate s[i][j] for i=0..n-1, j=1..k
-    const s = Array.from({ length: n }, () => Array(k + 1).fill(0));
-    for (let i = 0; i < n; i++) {
-        for (let j = 1; j <= k; j++) {
-            s[i][j] = this.newVar();
+        // allocate s[i][j] for i=0..n-1, j=1..k
+        const s = Array.from({ length: n }, () => Array(k + 1).fill(0));
+        for (let i = 0; i < n; i++) {
+            for (let j = 1; j <= k; j++) {
+                s[i][j] = this.newVar();
+            }
         }
-    }
 
-    const x = vars;
+        const x = vars;
 
-    // 1) x1 -> s1,1   : (¬x1 ∨ s[0][1])
-    clauses.push([-x[0], s[0][1]]);
+        // 1) x1 -> s1,1   : (¬x1 ∨ s[0][1])
+        clauses.push([-x[0], s[0][1]]);
 
-    // 2) xi -> si,1   for i = 2..n : (¬xi ∨ s[i][1])
-    for (let i = 1; i < n; i++) {
-        clauses.push([-x[i], s[i][1]]);
-    }
-
-    // 3) s(i-1,j) -> s(i,j)  for i=2..n, j=1..k
-    //    (¬s[i-1][j] ∨ s[i][j])
-    for (let i = 1; i < n; i++) {
-        for (let j = 1; j <= k; j++) {
-            clauses.push([-s[i - 1][j], s[i][j]]);
+        // 2) xi -> si,1   for i = 2..n : (¬xi ∨ s[i][1])
+        for (let i = 1; i < n; i++) {
+            clauses.push([-x[i], s[i][1]]);
         }
-    }
 
-    // 4) x_i ∧ s(i-1,k) forbidden for i = 2..n
-    //    (¬x_i ∨ ¬s[i-1][k])
-    for (let i = 1; i < n; i++) {
-        clauses.push([-x[i], -s[i - 1][k]]);
-    }
-
-    // 5) x_i ∧ s(i-1,j-1) -> s(i,j)
-    //    (¬x_i ∨ ¬s[i-1][j-1] ∨ s[i][j]) for i=2..n, j=2..k
-    for (let i = 1; i < n; i++) {
-        for (let j = 2; j <= k; j++) {
-            clauses.push([-x[i], -s[i - 1][j - 1], s[i][j]]);
+        // 3) s(i-1,j) -> s(i,j)  for i=2..n, j=1..k
+        //    (¬s[i-1][j] ∨ s[i][j])
+        for (let i = 1; i < n; i++) {
+            for (let j = 1; j <= k; j++) {
+                clauses.push([-s[i - 1][j], s[i][j]]);
+            }
         }
-    }
 
-    return clauses;
+        // 4) x_i ∧ s(i-1,k) forbidden for i = 2..n
+        //    (¬x_i ∨ ¬s[i-1][k])
+        for (let i = 1; i < n; i++) {
+            clauses.push([-x[i], -s[i - 1][k]]);
+        }
+
+        // 5) x_i ∧ s(i-1,j-1) -> s(i,j)
+        //    (¬x_i ∨ ¬s[i-1][j-1] ∨ s[i][j]) for i=2..n, j=2..k
+        for (let i = 1; i < n; i++) {
+            for (let j = 2; j <= k; j++) {
+                clauses.push([-x[i], -s[i - 1][j - 1], s[i][j]]);
+            }
+        }
+
+        return clauses;
     }
 
     convertVarNamesToLit(var_names){
@@ -430,6 +431,7 @@ class LegionSolver {
     mapSolution(solutions){
         var idx = 0;
         var placements = [];
+        var piece_count_map = new Map();
         for (let [var_name, lit] of this.var_map.entries()) {
             if (solutions[idx] > 0) {
                 placements.push(var_name);
@@ -439,6 +441,11 @@ class LegionSolver {
                 const c = parseInt(parts[3].substring(1));
                 const o = parseInt(parts[4].substring(1));
 
+                if (!piece_count_map.has(p)){
+                    piece_count_map.set(p, 0);
+                }
+                piece_count_map.set(p, piece_count_map.get(p) + 1);
+
                 const [covered, center_covered] = this.getOccupancyFromParams(p,r,c,o);
                 const piece_id = this.pieces[p].id;
                 this.history.push([]);
@@ -447,19 +454,32 @@ class LegionSolver {
                     let grid_c = covered[i][1];
                     this.board[grid_r][grid_c] = piece_id;
                     this.history[this.history.length - 1].push(new Point(grid_c, grid_r));
-                    console.log(`Placing piece ${piece_id} at R${grid_r} C${grid_c} to value ${this.board[grid_r][grid_c]}`);
+                    // console.log(`Placing piece ${piece_id} at R${grid_r} C${grid_c} to value ${this.board[grid_r][grid_c]}`);
                 }
                 for (let i = 0; i < center_covered.length; i++) {
                     let grid_r = center_covered[i][0];
                     let grid_c = center_covered[i][1];
                     this.board[grid_r][grid_c] = piece_id + 18;
-                    console.log(`Placing piece ${piece_id} at R${grid_r} C${grid_c} to value ${this.board[grid_r][grid_c]}`);
+                    // console.log(`Placing piece ${piece_id} at R${grid_r} C${grid_c} to value ${this.board[grid_r][grid_c]}`);
                 }
 
             }
             idx++;
         }
         this.placements = placements;
+
+        var no_overuse = true
+        console.log(`Piece usage requirements:`);
+        console.log(piece_count_map);
+        for (let [p, count] of piece_count_map.entries()) {
+            if (count > this.pieces[p].amount) {
+                no_overuse = false;
+                console.log(`Piece ${p} overused: used ${count}, allowed ${this.pieces[p].amount}`);
+            }
+        }
+        if (no_overuse) {
+            console.log("No pieces overused.");
+        }
     }
 
     async solveInternal(batchSize=30000) {
