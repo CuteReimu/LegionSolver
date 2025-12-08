@@ -72,13 +72,6 @@ class LegionSolver {
 
         const worker = new Worker("./kissat_worker.js");
         this.worker = worker;
-        let resolveWait;
-        const waitForSolver = new Promise((resolve) => {
-            resolveWait = resolve;
-        });
-        var solved = false;
-        var solutions = null;
-        var workerReady = false;
 
         this.generateVariablesByPieceRowColOri(this.pieces);
         this.consraintForGridOccupation(this.board);
@@ -86,24 +79,36 @@ class LegionSolver {
         // this.constraintForCenterOccupation();
         console.log(`Total variables: ${this.lits.length}`);
         console.log(`Total clauses: ${this.clauses.length}`);
-        // var kissat_solver = new Kissat();
-        worker.onmessage = (ev) => {
-            if (ev.data === true) {
-                workerReady = true;
-            } else {
-                const { sat, model } = ev.data;
-                console.log("Message received from worker");
-                console.log(`SAT: ${sat}`);
-                console.log(`Model: ${model}`);
-                // console.log(this.var_map);
-                solved = sat;
-                solutions = model;
-                resolveWait();
+
+        // Wait for kissat wasm to initialize
+        await new Promise((resolve, reject) => {
+            const timeout = setTimeout(() =>
+                reject(new Error("Worker init timeout")), 8000);
+
+            function onReady(ev) {
+                if (ev.data === true) {
+                    clearTimeout(timeout);
+                    worker.removeEventListener("message", onReady);
+                    resolve();
+                }
             }
-        }
-        while (!workerReady) {
-            await new Promise(resolve => setTimeout(resolve, 10));
-        }
+
+            worker.addEventListener("message", onReady);
+        });
+
+        // Wait for solve result
+        const resultPromise = new Promise(resolve => {
+            worker.addEventListener("message", function handler(ev) {
+                if (ev.data === true) return; // ignore init
+
+                worker.removeEventListener("message", handler);
+                let {sat, model} = ev.data;
+                resolve([sat, model]);
+            });
+        });
+
+
+
         console.time("Solving time");
         worker.postMessage({ vars: this.lits, clauses: this.clauses });
         this.lits = null;
@@ -114,7 +119,7 @@ class LegionSolver {
         globalThis.gc?.();
         console.log("Garbage collection triggered");
 
-        await waitForSolver;
+        const[solved, solutions] = await resultPromise;
         console.timeEnd("Solving time");
         console.log("Solving finished");
         if (!solved) {
